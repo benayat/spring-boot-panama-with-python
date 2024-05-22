@@ -32,3 +32,4 @@ build/
 ### VS Code ###
 .vscode/
 /src/main/java/org/python/
+/src/main/java/org/benaya/learn/polyglotwithvenv/memory/
