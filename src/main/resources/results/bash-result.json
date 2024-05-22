@@ -1,0 +1,5 @@
+{
+  "time": "8 seconds",
+  "fileName": "bash-run.sh",
+  "reason": "ollama generates single embedding per request, no batching"
+}
