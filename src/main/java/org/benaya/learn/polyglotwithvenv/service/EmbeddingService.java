@@ -3,6 +3,7 @@ package org.benaya.learn.polyglotwithvenv.service;
 import jakarta.annotation.PostConstruct;
 import jakarta.annotation.PreDestroy;
 import lombok.RequiredArgsConstructor;
+import org.benaya.learn.polyglotwithvenv.annotation.PythonGilLock;
 import org.springframework.stereotype.Service;
 
 import java.lang.foreign.Arena;
@@ -42,11 +43,16 @@ public class EmbeddingService {
         PyEval_SaveThread();
     }
 
+    @PythonGilLock
     public List<List<Double>> getEmbeddingsForSentences(List<String> sentences) {
-        List<List<Double>> embeddings = new ArrayList<>();
-        PyGILState_Ensure();
+        MemorySegment pList = convertJavaStringListToPythonList(sentences);
+        MemorySegment pArgs = createPythonArgsFromPythonList(pList);
+        MemorySegment pValue = callFunctionWithArgs(pArgs);
+        return convertResultToJavaListOfLists(pValue);
+    }
 
-        // Convert Java strings to Python strings and create Python list
+    @PythonGilLock
+    private MemorySegment convertJavaStringListToPythonList(List<String> sentences) {
         MemorySegment pList = PyList_New(sentences.size());
         if (pList.address() == 0) {
             throw new RuntimeException("Failed to create Python list");
@@ -59,20 +65,31 @@ public class EmbeddingService {
             }
             PyList_SetItem(pList, i, pyStr);
         }
+        return pList;
+    }
 
-        // Call the Python function
+    @PythonGilLock
+    private MemorySegment createPythonArgsFromPythonList(MemorySegment pList) {
         MemorySegment pArgs = PyTuple_New(1);
         if (pArgs.address() == 0) {
             throw new RuntimeException("Failed to create Python tuple");
         }
         PyTuple_SetItem(pArgs, 0, pList);
-        MemorySegment pValue = PyObject_CallObject(pFunc, pArgs);
+        return pArgs;
+    }
 
+    @PythonGilLock
+    private MemorySegment callFunctionWithArgs(MemorySegment pArgs) {
+        MemorySegment pValue = PyObject_CallObject(pFunc, pArgs);
         if (pValue.address() == 0) {
             throw new RuntimeException("Failed to call Python function");
         }
+        return pValue;
+    }
 
-        // Check if the result is a list and process it
+    @PythonGilLock
+    private List<List<Double>> convertResultToJavaListOfLists(MemorySegment pValue) {
+        List<List<Double>> embeddings = new ArrayList<>();
         long size = PyList_Size(pValue);
         for (int i = 0; i < size; i++) {
             MemorySegment item = PyList_GetItem(pValue, i);
@@ -83,11 +100,7 @@ public class EmbeddingService {
                 embeddingsCurrent.add(PyFloat_AsDouble(innerItem));
             }
             embeddings.add(embeddingsCurrent);
-
         }
-
-
-        PyEval_SaveThread();
         return embeddings;
     }
 
