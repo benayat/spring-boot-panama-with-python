@@ -9,3 +9,7 @@
 
 #### 1.0.0-SNAPSHOT
 - cleaned the code with spring boot aop and @PythonGilLock custom annotation.
+
+#### 1.0.0
+- using Json marshaling with objectMapper, instead of allocating multiple memory segments directly.
+- updated readme with more detailed explanation of the purpose and running instructions of this repo.

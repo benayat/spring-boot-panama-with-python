@@ -10,7 +10,7 @@
 	</parent>
 	<groupId>org.benaya.learn</groupId>
 	<artifactId>polyglot-with-venv</artifactId>
-	<version>1.0.0-SNAPSHOT</version>
+	<version>1.0.0</version>
 	<name>polyglot-with-venv</name>
 	<description>polyglot-with-venv</description>
 	<properties>
