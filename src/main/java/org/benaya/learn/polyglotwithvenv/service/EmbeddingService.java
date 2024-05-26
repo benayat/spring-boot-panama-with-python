@@ -1,5 +1,8 @@
 package org.benaya.learn.polyglotwithvenv.service;
 
+import com.fasterxml.jackson.core.JsonProcessingException;
+import com.fasterxml.jackson.core.type.TypeReference;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import jakarta.annotation.PostConstruct;
 import jakarta.annotation.PreDestroy;
 import lombok.RequiredArgsConstructor;
@@ -12,15 +15,15 @@ import java.util.ArrayList;
 import java.util.List;
 
 import static java.lang.foreign.MemorySegment.NULL;
-import static org.benaya.learn.polyglotwithvenv.constants.PythonScripts.EMBEDDING_SCRIPT;
+import static org.benaya.learn.polyglotwithvenv.constants.PythonScripts.EMBEDDING_SCRIPT_JSON;
 import static org.python.Python_h_1.*;
-import static org.python.Python_h_2.*;
 
 @Service
 @RequiredArgsConstructor
 public class EmbeddingService {
     private Arena arena;
     private MemorySegment pFunc;
+    private final ObjectMapper mapper = new ObjectMapper();
 
     @PostConstruct
     public void init() {
@@ -28,7 +31,7 @@ public class EmbeddingService {
         PyEval_SaveThread();
         arena = Arena.global();
         PyGILState_Ensure();
-        MemorySegment str = arena.allocateFrom(EMBEDDING_SCRIPT);
+        MemorySegment str = arena.allocateFrom(EMBEDDING_SCRIPT_JSON);
         PyRun_SimpleStringFlags(str, NULL);
         MemorySegment moduleName = arena.allocateFrom("__main__");
         MemorySegment module = PyImport_ImportModule(moduleName);
@@ -44,11 +47,12 @@ public class EmbeddingService {
     }
 
     @PythonGilLock
-    public List<List<Double>> getEmbeddingsForSentences(List<String> sentences) {
+    public List<List<Double>> getEmbeddingsForSentences(List<String> sentences) throws JsonProcessingException {
         MemorySegment pList = convertJavaStringListToPythonList(sentences);
         MemorySegment pArgs = createPythonArgsFromPythonList(pList);
         MemorySegment pValue = callFunctionWithArgs(pArgs);
-        return convertResultToJavaListOfLists(pValue);
+        return mapJsonStringResultToJavaList(pValue);
+//        return convertResultToJavaListOfLists(pValue);
     }
 
     @PythonGilLock
@@ -102,6 +106,12 @@ public class EmbeddingService {
             embeddings.add(embeddingsCurrent);
         }
         return embeddings;
+    }
+
+    @PythonGilLock
+    private List<List<Double>> mapJsonStringResultToJavaList(MemorySegment pValue) throws JsonProcessingException {
+        String resultJson = PyUnicode_AsUTF8(pValue).getString(0);
+        return mapper.readValue(resultJson, new TypeReference<>() {});
     }
 
     @PreDestroy
